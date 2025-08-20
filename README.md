@@ -9,6 +9,7 @@ This repository contains various Shuffle apps for workflow automation and securi
 | AWS S3 | 1.0.0 | AWS S3 and MinIO storage operations | 10 actions |
 | HTTP | 1.4.0 | HTTP client for web requests | 8 actions |
 | Test App | 1.0.0 | Testing app for SDK features | 2 actions |
+| QRadar | 1.0.0 | IBM QRadar SIEM integration | 20+ actions |
 
 ### HTTP App Version History
 
@@ -78,6 +79,59 @@ Simple testing app using App SDK 0.0.25 for development and testing purposes.
 - Execution isolation testing
 - Datastore functionality testing
 
+## QRadar App
+
+Comprehensive IBM QRadar SIEM integration for security operations and incident response.
+
+### Features
+
+**Offense Management:**
+- List all offenses from QRadar
+- Get detailed offense information
+- Update offense properties and status
+- Close offenses with resolution notes
+- Add investigative notes to offenses
+
+**Rule Management:**
+- Retrieve and manage QRadar rules
+- Update rule configurations
+- Delete obsolete rules
+- Get rule offense contribution statistics
+
+**Ariel Search Engine:**
+- Create custom Ariel searches
+- Execute complex queries across data sources
+- Retrieve search results with pagination
+- Support for multiple databases and data lakes
+
+**System Management:**
+- Manage authorized services
+- Custom API requests for extended functionality
+- SSL/TLS verification control
+- Response formatting and file handling
+
+### Available Actions
+
+| Action | Description | Use Case |
+|--------|-------------|----------|
+| `get_list_offenses` | Retrieve all QRadar offenses | Monitoring, reporting |
+| `get_offense` | Get specific offense details | Investigation, analysis |
+| `post_update_offense` | Update offense properties | Status management |
+| `post_close_offense` | Close an offense | Incident resolution |
+| `post_add_offense_note` | Add notes to offenses | Documentation, collaboration |
+| `get_rules` | List QRadar rules | Rule management |
+| `get_rule` | Get specific rule details | Rule analysis |
+| `post_update_a_rule` | Update rule configuration | Rule tuning |
+| `delete_the_rule` | Remove rules | Cleanup, optimization |
+| `get_rule_offense_contributions` | Rule offense statistics | Performance analysis |
+| `get_ariel_searches` | List Ariel searches | Search management |
+| `create_ariel_search` | Create new searches | Data investigation |
+| `post_new_search` | Alternative search creation | Query execution |
+| `get_ariel_search_results` | Retrieve search results | Data analysis |
+| `get_authorized_services` | List authorized services | System administration |
+| `post_create_an_authorized_services` | Create services | Access management |
+| `custom_action` | Generic API requests | Extended functionality |
+
 ## Installation & Usage
 
 ### Build and Deploy
@@ -100,46 +154,45 @@ zip -r [app-name].zip . -x "*.git*"
 
 4. Upload to Shuffle via UI or API
 
-## Deployment Configuration Files
+## Related Repositories
 
-This repository also includes deployment and configuration files for Shuffle infrastructure:
+This repository focuses exclusively on Shuffle apps. For deployment and infrastructure:
 
-### Included Configuration Files
+### 🚀 [K8s-Deployments Repository](https://github.com/Pr0mp7/k8s-deployments)
 
-- `pull_and_save_shuffle_images.sh` - Script to download and save Shuffle 2.0.0 Docker images for offline deployment
-- `shuffle-values.yaml` - Helm values configuration for Shuffle deployment with Kubernetes
-- `ingress-nginx.yaml` - Nginx ingress configuration
-- `iris-values.yaml` - IRIS system configuration values
-- `longhorn-ingress.yaml` - Longhorn storage ingress configuration  
-- `longhorn-values.yaml` - Longhorn storage system values
-- `longhron-ingress.yaml` - Additional Longhorn ingress config
+Complete Kubernetes deployment and CI/CD infrastructure:
 
-### Deployment Features
-
-- **Offline Deployment Ready**: Includes script to download all required Docker images
-- **Kubernetes Native**: Configured for Kubernetes deployment with proper resource management
-- **Storage Integration**: Longhorn distributed storage configuration
-- **Ingress Management**: Complete ingress setup for web access
-- **High Availability**: Production-ready configuration with proper scaling
+- **Shuffle Deployment**: Production-ready Helm configurations
+- **Air-gapped Support**: Offline deployment capabilities
+- **CI/CD Pipelines**: Buildah-based container build automation
+- **Storage & Ingress**: Longhorn and Nginx configurations
+- **Security**: TLS/SSL and authentication setup
 
 ### Directory Structure
 
 ```
 shuffle-apps/
 ├── README.md
-├── aws_s3/
+├── aws_s3/                    # AWS S3 & MinIO integration
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   ├── api.yaml
 │   └── src/
 │       └── app.py
-├── http/
+├── http/                      # HTTP client (current v1.4.0)
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   ├── api.yaml
 │   └── src/
 │       └── app.py
-├── test-app/
+├── qradar_app/               # IBM QRadar SIEM integration
+│   └── 1.0.0/
+│       ├── Dockerfile
+│       ├── requirements.txt
+│       ├── api.yml
+│       └── src/
+│           └── app.py
+├── test-app/                 # SDK testing and development
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   ├── api.yaml
@@ -147,19 +200,11 @@ shuffle-apps/
 │       ├── app.py
 │       └── shuffle_sdk/
 │           └── __init__.py
-├── http-versions/
-│   ├── 1.0.0/
-│   ├── 1.1.0/
-│   ├── 1.2.0/
-│   └── 1.3.0/
-└── deployment-configs/
-    ├── pull_and_save_shuffle_images.sh
-    ├── shuffle-values.yaml
-    ├── ingress-nginx.yaml
-    ├── iris-values.yaml
-    ├── longhorn-ingress.yaml
-    ├── longhorn-values.yaml
-    └── longhron-ingress.yaml
+└── http-versions/            # Legacy HTTP app versions
+    ├── 1.0.0/
+    ├── 1.1.0/
+    ├── 1.2.0/
+    └── 1.3.0/
 ```
 
 ## Requirements
@@ -168,37 +213,37 @@ shuffle-apps/
 - Shuffle platform for deployment
 - Python 3.x with shuffle_sdk
 
-## Deployment Quick Start
+## Quick App Deployment
 
-### For Air-Gapped Environments
+### Using Shuffle UI
 
-1. Run the image download script:
+1. **Build the app:**
 ```bash
-cd deployment-configs
-./pull_and_save_shuffle_images.sh
+cd [app-name]
+zip -r [app-name].zip . -x "*.git*"
 ```
 
-2. Transfer the generated `shuffle-2.0.0-complete.tar.gz` to your target environment
+2. **Upload to Shuffle:**
+   - Go to Shuffle UI → Apps → Upload App
+   - Select the ZIP file
+   - App will be automatically deployed
 
-3. Load images in target environment:
+### Using Container Registry
+
+1. **Build Docker image:**
 ```bash
-tar -xzf shuffle-2.0.0-complete.tar.gz
-for image in shuffle-2.0.0-export/*.tar; do docker load -i $image; done
+cd [app-name]
+docker build -t your-registry/shuffle-[app-name]:1.0.0 .
 ```
 
-4. Deploy using Helm:
+2. **Push to registry:**
 ```bash
-helm install shuffle -f deployment-configs/shuffle-values.yaml shuffle/shuffle
+docker push your-registry/shuffle-[app-name]:1.0.0
 ```
 
-### For Kubernetes Deployment
+3. **Deploy via Shuffle API or UI**
 
-The included configurations support:
-- **Shuffle 2.0.0+** with all components
-- **OpenSearch** for data storage and analytics
-- **Longhorn** distributed storage
-- **Nginx Ingress** for web access
-- **Production scaling** with proper resource limits
+For complete deployment infrastructure including Kubernetes, CI/CD, and air-gapped environments, see the [K8s-Deployments Repository](https://github.com/Pr0mp7/k8s-deployments).
 
 ## Contributing
 
