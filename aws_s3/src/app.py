@@ -47,6 +47,8 @@ class AWSS3(AppBase):
         # Add endpoint configuration for MinIO or custom S3
         if endpoint_url and endpoint_url.strip():
             kwargs['endpoint_url'] = endpoint_url.strip()
+            # Determine if we should use SSL based on URL
+            kwargs['use_ssl'] = endpoint_url.startswith('https')
             # For self-signed certificates in airgapped environments
             kwargs['verify'] = False
             
@@ -58,29 +60,12 @@ class AWSS3(AppBase):
         try:
             self.s3 = self.auth_s3(access_key, secret_key, region, endpoint_url)
             client = self.s3.meta.client
-            response = client.list_buckets()
-            
-            # Extract bucket names for easier use
-            bucket_list = [bucket['Name'] for bucket in response.get('Buckets', [])]
-            
-            return json.dumps({
-                "success": True,
-                "buckets": bucket_list,
-                "count": len(bucket_list),
-                "full_response": response
-            }, default=str)
+            newlist = client.list_buckets()
+            return json.dumps(newlist, default=str)
         except botocore.exceptions.ClientError as e:
-            error_code = e.response['Error']['Code']
-            error_message = e.response['Error']['Message']
-            return json.dumps({
-                "success": False, 
-                "error": f"AWS Error: {error_message} (Code: {error_code})"
-            })
+            return json.dumps({"success": False, "error": str(e)})
         except Exception as e:
-            return json.dumps({
-                "success": False, 
-                "error": f"Connection error: {str(e)}"
-            })
+            return json.dumps({"success": False, "error": str(e)})
 
     def create_bucket(self, access_key, secret_key, region, bucket_name, access_type, endpoint_url=None):
         """Create a new S3 bucket"""
@@ -88,72 +73,26 @@ class AWSS3(AppBase):
             self.s3 = self.auth_s3(access_key, secret_key, region, endpoint_url)
             client = self.s3.meta.client
             
-            # Prepare bucket creation parameters
-            create_params = {'Bucket': bucket_name}
-            
-            # Only add CreateBucketConfiguration if not using us-east-1
-            # and not using a custom endpoint (MinIO, etc.)
-            if region != 'us-east-1' and not (endpoint_url and endpoint_url.strip()):
-                create_params['CreateBucketConfiguration'] = {
-                    'LocationConstraint': region
-                }
-            
-            # Add ACL only if access_type is provided and valid
-            if access_type and access_type.strip():
-                # Map common access types to valid ACL values
-                acl_mapping = {
-                    'private': 'private',
-                    'public': 'public-read',
-                    'public-read': 'public-read',
-                    'public-read-write': 'public-read-write',
-                    'authenticated-read': 'authenticated-read'
-                }
-                
-                acl_value = acl_mapping.get(access_type.lower(), access_type)
-                
-                # Only add ACL for AWS S3, not for custom endpoints (MinIO may not support all ACLs)
-                if not (endpoint_url and endpoint_url.strip()):
-                    create_params['ACL'] = acl_value
-            
-            # Create the bucket
-            creation = client.create_bucket(**create_params)
-            
-            return json.dumps({
-                "success": True, 
-                "message": f"Bucket '{bucket_name}' created successfully",
-                "result": creation,
-                "region": region
-            }, default=str)
-            
-        except botocore.exceptions.ClientError as e:
-            error_code = e.response['Error']['Code']
-            error_message = e.response['Error']['Message']
-            
-            if error_code == 'BucketAlreadyOwnedByYou':
-                return json.dumps({
-                    "success": True,
-                    "message": f"Bucket '{bucket_name}' already exists and is owned by you"
-                })
-            elif error_code == 'BucketAlreadyExists':
-                return json.dumps({
-                    "success": False,
-                    "error": f"Bucket '{bucket_name}' already exists"
-                })
-            elif error_code == 'InvalidLocationConstraint':
-                return json.dumps({
-                    "success": False,
-                    "error": f"Invalid location constraint for region '{region}'. Try using 'us-east-1' for custom endpoints."
-                })
+            # For MinIO or us-east-1, don't specify LocationConstraint
+            if region == 'us-east-1' or endpoint_url:
+                creation = client.create_bucket(
+                    Bucket=bucket_name,
+                    ACL=access_type,
+                )
             else:
-                return json.dumps({
-                    "success": False,
-                    "error": f"Error creating bucket: {error_message} (Code: {error_code})"
-                })
+                creation = client.create_bucket(
+                    Bucket=bucket_name,
+                    ACL=access_type,
+                    CreateBucketConfiguration={
+                        'LocationConstraint': region
+                    },
+                )
+            
+            return json.dumps({"success": True, "result": creation}, default=str)
+        except botocore.exceptions.ClientError as e:
+            return json.dumps({"success": False, "error": str(e)})
         except Exception as e:
-            return json.dumps({
-                "success": False,
-                "error": f"Unexpected error creating bucket: {str(e)}"
-            })
+            return json.dumps({"success": False, "error": str(e)})
 
     def block_ip_access(self, access_key, secret_key, region, bucket_name, ip, endpoint_url=None):
         """Block IP access to bucket (AWS only, may not work with MinIO)"""
@@ -257,51 +196,19 @@ class AWSS3(AppBase):
             
             found_file = self.get_file(file_id)
             if not found_file:
-                return json.dumps({
-                    "success": False, 
-                    "error": f"File with ID '{file_id}' not found in Shuffle"
-                })
-            
-            file_data = found_file.get("data", "")
-            if not file_data:
-                return json.dumps({
-                    "success": False, 
-                    "error": "File data is empty"
-                })
+                return json.dumps({"success": False, "error": "File not found in Shuffle"})
             
             s3_response = client.put_object(
                 Bucket=bucket_name, 
                 Key=bucket_path, 
-                Body=file_data
+                Body=found_file.get("data", "")
             )
             
-            return json.dumps({
-                "success": True, 
-                "message": f"File uploaded successfully to {bucket_name}/{bucket_path}",
-                "etag": s3_response.get('ETag', ''),
-                "size": len(file_data) if isinstance(file_data, (str, bytes)) else 0,
-                "result": s3_response
-            }, default=str)
-            
+            return json.dumps({"success": True, "result": s3_response}, default=str)
         except botocore.exceptions.ClientError as e:
-            error_code = e.response['Error']['Code']
-            error_message = e.response['Error']['Message']
-            
-            if error_code == 'NoSuchBucket':
-                return json.dumps({
-                    "success": False,
-                    "error": f"Bucket '{bucket_name}' does not exist"
-                })
-            else:
-                return json.dumps({
-                    "success": False,
-                    "error": f"Upload failed: {error_message} (Code: {error_code})"
-                })
+            return json.dumps({"success": False, "error": str(e)})
         except Exception as e:
-            return json.dumps({
-                "success": False, 
-                "error": f"Upload error: {str(e)}"
-            })
+            return json.dumps({"success": False, "error": str(e)})
 
     def delete_file_from_bucket(self, access_key, secret_key, region, bucket_name, bucket_path, endpoint_url=None):
         """Delete a file from S3 bucket"""
